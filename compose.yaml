@@ -1,0 +1,59 @@
+services:
+  postgres:
+    image: postgres:16
+    environment:
+      POSTGRES_DB: gradewallet
+      POSTGRES_USER: gradewallet
+      POSTGRES_PASSWORD: gradewallet
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres-data:/var/lib/postgresql/data
+      - ./scripts:/seed:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U gradewallet -d gradewallet"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+  api:
+    build: .
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/gradewallet
+      DATABASE_USERNAME: gradewallet
+      DATABASE_PASSWORD: gradewallet
+      APP_WORKER_ENABLED: "false"
+      STATEMENT_LLM_ENABLED: ${STATEMENT_LLM_ENABLED:-false}
+      STATEMENT_LLM_API_KEY: ${STATEMENT_LLM_API_KEY:-}
+      STATEMENT_LLM_MODEL: ${STATEMENT_LLM_MODEL:-gpt-4o-mini}
+      STATEMENT_LLM_ENDPOINT: ${STATEMENT_LLM_ENDPOINT:-https://api.openai.com/v1/chat/completions}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-dev-admin-token}
+      ADMIN_USER_ID: ${ADMIN_USER_ID:-1}
+      IDEMPOTENCY_ENCRYPTION_KEY: ${IDEMPOTENCY_ENCRYPTION_KEY:-dev-only-change-this-key}
+    ports:
+      - "8080:8080"
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  worker:
+    build: .
+    environment:
+      DATABASE_URL: jdbc:postgresql://postgres:5432/gradewallet
+      DATABASE_USERNAME: gradewallet
+      DATABASE_PASSWORD: gradewallet
+      APP_WORKER_ENABLED: "true"
+      SPRING_MAIN_WEB_APPLICATION_TYPE: none
+      STATEMENT_LLM_ENABLED: ${STATEMENT_LLM_ENABLED:-false}
+      STATEMENT_LLM_API_KEY: ${STATEMENT_LLM_API_KEY:-}
+      STATEMENT_LLM_MODEL: ${STATEMENT_LLM_MODEL:-gpt-4o-mini}
+      STATEMENT_LLM_ENDPOINT: ${STATEMENT_LLM_ENDPOINT:-https://api.openai.com/v1/chat/completions}
+      ADMIN_API_TOKEN: ${ADMIN_API_TOKEN:-dev-admin-token}
+      ADMIN_USER_ID: ${ADMIN_USER_ID:-1}
+      IDEMPOTENCY_ENCRYPTION_KEY: ${IDEMPOTENCY_ENCRYPTION_KEY:-dev-only-change-this-key}
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  postgres-data:
